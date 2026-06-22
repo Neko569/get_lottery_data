@@ -11,6 +11,7 @@ import csv
 import gzip
 import json
 import os
+import random
 import time
 import urllib.parse
 import urllib.request
@@ -139,7 +140,7 @@ def should_keep(item: Dict[str, Any], earliest: datetime) -> bool:
         return False
 
 
-def fetch_all_history(years: int = 10, max_pages: int = 200, sleep: float = 0.6) -> List[Dict[str, Any]]:
+def fetch_all_history(years: int = 10, max_pages: int = 200) -> List[Dict[str, Any]]:
     """按页抓取，直到遇到 10 年前的记录或空页。"""
     earliest = datetime.now() - timedelta(days=years * 365 + 2)
     print(f"[INFO] 目标时间范围: {earliest.strftime('%Y-%m-%d')} 至今 (约 {years} 年)")
@@ -188,7 +189,9 @@ def fetch_all_history(years: int = 10, max_pages: int = 200, sleep: float = 0.6)
             reached_end = True
             break
 
-        time.sleep(sleep)
+        delay = random.uniform(5, 20)
+        print(f"[INFO] 随机延迟 {delay:.1f} 秒...")
+        time.sleep(delay)
 
     if not reached_end:
         print(f"[WARN] 已达最大页数 ({max_pages})，仍可能有更早数据未抓取。")
