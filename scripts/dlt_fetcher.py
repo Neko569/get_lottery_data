@@ -13,11 +13,16 @@ import argparse
 import csv
 import gzip
 import json
+import os
 import random
 import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, "../data")
+os.makedirs(DATA_DIR, exist_ok=True)
 
 API_URL = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry"
 HEADERS = {
@@ -135,19 +140,21 @@ def get_all_data():
 
 
 def save_to_file(records, filename="dlt_history.json"):
-    with open(filename, "w", encoding="utf-8") as f:
+    filepath = os.path.join(DATA_DIR, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, indent=2)
-    print(f"数据已保存到 {filename}，共 {len(records)} 条记录")
+    print(f"数据已保存到 {filepath}，共 {len(records)} 条记录")
 
 
 def save_to_csv(records, filename="dlt_history.csv"):
     if not records:
         return
-    with open(filename, "w", encoding="utf-8-sig", newline="") as f:
+    filepath = os.path.join(DATA_DIR, filename)
+    with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["期号", "开奖日期", "开奖号码"])
         writer.writeheader()
         writer.writerows(records)
-    print(f"数据已保存到 {filename}，共 {len(records)} 条记录")
+    print(f"数据已保存到 {filepath}，共 {len(records)} 条记录")
 
 
 def main():
