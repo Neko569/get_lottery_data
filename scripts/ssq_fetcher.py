@@ -18,20 +18,23 @@ from datetime import datetime, timedelta
 
 import requests
 
+# 获取脚本所在目录，并设置数据存储目录
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "../data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# API配置
 API_URL = "https://gdwechat.daguoxiaoxian.com/api/lottery-results/list"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
     "Referer": "https://gdwechat.daguoxiaoxian.com/frontend/#/pages/historySSQ/index?v=2"
 }
 
-LIMIT = 30
+LIMIT = 30  # 每页返回的记录数
 
 
 def fetch_page(page):
+    """获取指定页码的数据"""
     params = {
         "type": 1,
         "limit": LIMIT,
@@ -47,6 +50,7 @@ def fetch_page(page):
 
 
 def parse_record(record):
+    """解析单条开奖记录，提取并重组所需字段"""
     return {
         "期号": record.get("issue_number", ""),
         "开奖日期": record.get("lottery_date", ""),
@@ -55,6 +59,7 @@ def parse_record(record):
 
 
 def get_latest():
+    """获取最新一期的开奖数据"""
     data = fetch_page(1)
     if data is not None and data.get("code") == 1:
         records = data.get("data", {}).get("list", [])
@@ -64,6 +69,10 @@ def get_latest():
 
 
 def get_all_data():
+    """
+    获取近10年所有历史开奖数据
+    通过分页遍历获取数据，直到达到10年前的记录或达到最大页数
+    """
     all_records = []
     page = 1
     max_records = 2000
@@ -73,6 +82,7 @@ def get_all_data():
         print(f"正在获取第 {page} 页...")
         data = fetch_page(page)
 
+        # 检查API响应状态
         if data is None or data.get("code") != 1:
             print(f"API返回异常: {data}")
             break
@@ -82,10 +92,12 @@ def get_all_data():
             print("没有更多数据了")
             break
 
+        # 解析并收集每条记录
         for record in records:
             parsed = parse_record(record)
             all_records.append(parsed)
 
+        # 检查是否已超过10年数据
         if records:
             latest_date = records[0].get("lottery_date", "")
             if latest_date:
@@ -98,16 +110,20 @@ def get_all_data():
                 except:
                     pass
 
+        # 数据不足一页说明已到末尾
         if len(records) < LIMIT:
             break
 
         page += 1
+        # 请求间隔延时
         time.sleep(0.5)
 
+    # 按日期和期号倒序排序，最新数据排在前面
     return sorted(all_records, key=lambda x: (x.get("开奖日期") or "", x.get("期号") or ""), reverse=True)
 
 
 def save_to_file(records, filename="ssq_history.json"):
+    """保存数据到JSON文件"""
     filepath = os.path.join(DATA_DIR, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, indent=2)
@@ -115,6 +131,7 @@ def save_to_file(records, filename="ssq_history.json"):
 
 
 def save_to_csv(records, filename="ssq_history.csv"):
+    """保存数据到CSV文件"""
     if not records:
         return
     filepath = os.path.join(DATA_DIR, filename)
@@ -126,6 +143,7 @@ def save_to_csv(records, filename="ssq_history.csv"):
 
 
 def main():
+    """主函数，处理命令行参数并执行相应操作"""
     parser = argparse.ArgumentParser(description="获取双色球开奖数据")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--latest", action="store_true", help="获取最新一期数据")
