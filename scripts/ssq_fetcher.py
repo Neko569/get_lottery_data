@@ -157,7 +157,7 @@ def save_to_csv(records, filename="ssq_history.csv"):
         return
     filepath = os.path.join(DATA_DIR, filename)
     with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["期号", "开奖日期", "开奖号码"])
+        writer = csv.DictWriter(f, fieldnames=["term", "draw_time", "draw_result", "front_numbers", "back_numbers"])
         writer.writeheader()
         writer.writerows(records)
     print(f"数据已保存到 {filepath}，共 {len(records)} 条记录")

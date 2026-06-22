@@ -51,13 +51,15 @@ def get_lottery_type():
     return lottery_type, beijing_time
 
 
-def run_script(script_path, mode="latest"):
-    print(f"\n正在运行: {script_path} --{mode}")
+def run_script(script_path, args):
+    """运行脚本，args 为参数列表，如 ['--recent', '1']"""
+    cmd = [sys.executable, script_path] + args
+    print(f"\n正在运行: {' '.join(cmd)}")
     print("-" * 60)
 
     try:
         result = subprocess.run(
-            [sys.executable, script_path, f"--{mode}"],
+            cmd,
             capture_output=True,
             text=True,
             timeout=120
@@ -82,20 +84,33 @@ def run_script(script_path, mode="latest"):
         return False
 
 
+def fetch_latest(lottery_type):
+    """获取指定彩票类型的最近数据并写入文件"""
+    if lottery_type == "ssq":
+        script = SSQ_SCRIPT
+    elif lottery_type == "daletou":
+        script = DALETOU_SCRIPT
+    else:
+        return False
+
+    # 使用 --recent 1 获取最近1个月数据并写入文件
+    return run_script(script, ["--recent", "1"])
+
+
 def main():
     lottery_type, beijing_time = get_lottery_type()
 
     if lottery_type is None:
         print("\n今天没有开奖任务（周五）")
         print("\n为确保数据完整性，仍将获取最新数据...")
-        run_script(SSQ_SCRIPT, "latest")
-        run_script(DALETOU_SCRIPT, "latest")
+        fetch_latest("ssq")
+        fetch_latest("daletou")
     elif lottery_type == "ssq":
         print("\n今天开奖: 双色球")
-        run_script(SSQ_SCRIPT, "latest")
+        fetch_latest("ssq")
     elif lottery_type == "daletou":
         print("\n今天开奖: 大乐透")
-        run_script(DALETOU_SCRIPT, "latest")
+        fetch_latest("daletou")
 
     print("\n" + "=" * 60)
     print("所有任务完成")
