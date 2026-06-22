@@ -104,7 +104,7 @@ def get_all_data():
         page += 1
         time.sleep(0.5)
 
-    return all_records
+    return sorted(all_records, key=lambda x: (x.get("开奖日期") or "", x.get("期号") or ""), reverse=True)
 
 
 def save_to_file(records, filename="ssq_history.json"):
