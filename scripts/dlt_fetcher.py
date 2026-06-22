@@ -78,14 +78,14 @@ def parse_record(record):
     result = record.get("lotteryDrawResult") or ""
     parts = result.strip().split() if result else []
     # 分离前区(5个号码)和后区(2个号码)
-    front = parts[:5]
-    back = parts[5:7]
+    front_numbers = parts[:5]
+    back_numbers = parts[5:7]
     return {
-        "期号": record.get("lotteryDrawNum", ""),
-        "开奖日期": record.get("lotteryDrawTime", ""),
-        "开奖号码": result,
-        "前区": " ".join(front),
-        "后区": " ".join(back)
+        "term": record.get("lotteryDrawNum", ""),
+        "draw_time": record.get("lotteryDrawTime", ""),
+        "draw_result": result,
+        "front_numbers": front_numbers,
+        "back_numbers": back_numbers
     }
 
 
@@ -99,15 +99,53 @@ def get_latest():
     return None
 
 
-def get_all_data():
+def update_latest():
+    """获取最新一期并增量更新到现有JSON文件（若期号已存在则跳过）"""
+    filepath = os.path.join(DATA_DIR, "dlt_history.json")
+    latest = get_latest()
+    if not latest:
+        print("未能获取到最新数据")
+        return False
+
+    # 读取现有数据
+    existing = {"items": []}
+    if os.path.exists(filepath):
+        with open(filepath, "r", encoding="utf-8") as f:
+            existing = json.load(f)
+
+    items = existing.get("items", [])
+    # 检查最新期号是否已存在
+    if any(str(it.get("term")) == str(latest.get("term")) for it in items):
+        print(f"最新一期（期号 {latest.get('term')}）已存在，无需更新")
+        return True
+
+    # 插入到列表头部
+    items.insert(0, latest)
+    existing["items"] = items
+    existing["total"] = len(items)
+    existing["generated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+    print(f"已更新 {filepath}，新增期号 {latest.get('term')}，共 {len(items)} 条记录")
+    return True
+
+
+def get_all_data(months=None):
     """
-    获取近10年所有历史开奖数据
-    通过分页遍历获取数据，直到达到10年前的记录或达到最大页数
+    获取历史开奖数据
+    通过分页遍历获取数据，直到达到指定月份前的记录或达到最大页数
+    months: 保留最近几个月的数据，None表示保留所有数据（最多10年）
     """
     all_records = []
     page = 1
     max_records = 2000
     max_pages = (max_records // PAGE_SIZE) + 2
+
+    cutoff_date = None
+    if months:
+        cutoff_date = datetime.now() - timedelta(days=30 * months)
+        print(f"仅保留最近 {months} 个月的数据")
 
     while page <= max_pages:
         print(f"正在获取第 {page} 页...")
@@ -133,15 +171,14 @@ def get_all_data():
             parsed = parse_record(record)
             all_records.append(parsed)
 
-        # 检查是否已超过10年数据
-        if records:
+        # 检查是否已达到截止日期
+        if cutoff_date and records:
             latest_date = records[0].get("lotteryDrawTime", "")
             if latest_date:
                 try:
                     record_date = datetime.strptime(latest_date[:10], "%Y-%m-%d")
-                    ten_years_ago = datetime.now() - timedelta(days=365 * 10)
-                    if record_date < ten_years_ago:
-                        print("已超过10年数据，停止获取")
+                    if record_date < cutoff_date:
+                        print(f"已超过 {months} 个月数据，停止获取")
                         break
                 except:
                     pass
@@ -155,14 +192,22 @@ def get_all_data():
         time.sleep(random.uniform(5, 20))
 
     # 按日期和期号倒序排序，最新数据排在前面
-    return sorted(all_records, key=lambda x: (x.get("开奖日期") or "", x.get("期号") or ""), reverse=True)
+    return sorted(all_records, key=lambda x: (x.get("draw_time") or "", x.get("term") or ""), reverse=True)
 
 
 def save_to_file(records, filename="dlt_history.json"):
     """保存数据到JSON文件"""
     filepath = os.path.join(DATA_DIR, filename)
+    data = {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "source": "sporttery.cn",
+        "game": "超级大乐透",
+        "game_no": "85",
+        "total": len(records),
+        "items": records
+    }
     with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False, indent=2)
     print(f"数据已保存到 {filepath}，共 {len(records)} 条记录")
 
 
@@ -172,7 +217,7 @@ def save_to_csv(records, filename="dlt_history.csv"):
         return
     filepath = os.path.join(DATA_DIR, filename)
     with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["期号", "开奖日期", "开奖号码"])
+        writer = csv.DictWriter(f, fieldnames=["term", "draw_time", "draw_result", "front_numbers", "back_numbers"])
         writer.writeheader()
         writer.writerows(records)
     print(f"数据已保存到 {filepath}，共 {len(records)} 条记录")
@@ -181,9 +226,11 @@ def save_to_csv(records, filename="dlt_history.csv"):
 def main():
     """主函数，处理命令行参数并执行相应操作"""
     parser = argparse.ArgumentParser(description="获取大乐透开奖数据")
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--latest", action="store_true", help="获取最新一期数据")
-    group.add_argument("--history", action="store_true", help="获取近10年历史数据")
+    parser.add_argument("--latest", action="store_true", help="获取最新一期数据")
+    parser.add_argument("--update", action="store_true", help="获取最新一期并增量更新到JSON文件")
+    parser.add_argument("--history", action="store_true", help="获取近10年历史数据")
+    parser.add_argument("--recent", type=int, metavar="MONTHS", help="获取最近MONTHS个月的数据")
+    parser.add_argument("--dry-run", action="store_true", help="仅输出不写入文件")
     args = parser.parse_args()
 
     print("=" * 50)
@@ -194,16 +241,24 @@ def main():
             print(json.dumps(record, ensure_ascii=False, indent=2))
         else:
             print("未能获取到最新数据")
+    elif args.update:
+        print("获取大乐透最新一期并增量更新")
+        update_latest()
     else:
-        print("获取大乐透近10年历史数据")
+        months = args.recent if args.recent else None
+        if months:
+            print(f"获取大乐透最近 {months} 个月数据")
+        else:
+            print("获取大乐透近10年历史数据")
         print("=" * 50)
-        records = get_all_data()
+        records = get_all_data(months=months)
         if records:
-            save_to_file(records, "dlt_history.json")
-            save_to_csv(records, "dlt_history.csv")
-            print("\n前5条数据预览:")
-            for r in records[:5]:
-                print(r)
+            if args.dry_run:
+                print(json.dumps(records, ensure_ascii=False, indent=2))
+            else:
+                save_to_file(records, "dlt_history.json")
+                save_to_csv(records, "dlt_history.csv")
+            print(f"\n共 {len(records)} 条记录")
         else:
             print("未能获取到数据")
     print("=" * 50)
