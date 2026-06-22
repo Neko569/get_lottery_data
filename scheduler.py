@@ -21,7 +21,7 @@ BEIJING_TZ = timezone(timedelta(hours=8))
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SSQ_SCRIPT = os.path.join(SCRIPT_DIR, "ssq_fetcher.py")
-DALETOU_SCRIPT = os.path.join(SCRIPT_DIR, "daletou_fetcher.py")
+DALETOU_SCRIPT = os.path.join(SCRIPT_DIR, "dlt_fetcher.py")
 
 LOTTERY_BY_WEEKDAY = {
     0: "daletou",   # 周一 - 大乐透
