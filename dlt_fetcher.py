@@ -5,8 +5,8 @@
 API来源: https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry
 
 用法:
-    python daletou_fetcher.py --latest    # 获取最新一期
-    python daletou_fetcher.py --history   # 获取近10年历史数据
+    python dlt_fetcher.py --latest    # 获取最新一期
+    python dlt_fetcher.py --history   # 获取近10年历史数据
 """
 
 import argparse
@@ -134,13 +134,13 @@ def get_all_data():
     return sorted(all_records, key=lambda x: (x.get("开奖日期") or "", x.get("期号") or ""))
 
 
-def save_to_file(records, filename="daletou_history.json"):
+def save_to_file(records, filename="dlt_history.json"):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, indent=2)
     print(f"数据已保存到 {filename}，共 {len(records)} 条记录")
 
 
-def save_to_csv(records, filename="daletou_history.csv"):
+def save_to_csv(records, filename="dlt_history.csv"):
     if not records:
         return
     with open(filename, "w", encoding="utf-8-sig", newline="") as f:
@@ -170,8 +170,8 @@ def main():
         print("=" * 50)
         records = get_all_data()
         if records:
-            save_to_file(records, "daletou_history.json")
-            save_to_csv(records, "daletou_history.csv")
+            save_to_file(records, "dlt_history.json")
+            save_to_csv(records, "dlt_history.csv")
             print("\n前5条数据预览:")
             for r in records[:5]:
                 print(r)
