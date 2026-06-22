@@ -51,10 +51,16 @@ def fetch_page(page):
 
 def parse_record(record):
     """解析单条开奖记录，提取并重组所需字段"""
+    win_code = record.get("win_code", "")
+    codes = [c.strip() for c in win_code.split(",") if c.strip()]
+    red_balls = codes[:6] if len(codes) >= 6 else codes
+    blue_ball = codes[-1] if len(codes) > 6 else ""
+    
     return {
         "期号": record.get("issue_number", ""),
         "开奖日期": record.get("lottery_date", ""),
-        "开奖号码": record.get("win_code", "")
+        "红球": ",".join(red_balls),
+        "蓝球": blue_ball
     }
 
 
@@ -136,7 +142,7 @@ def save_to_csv(records, filename="ssq_history.csv"):
         return
     filepath = os.path.join(DATA_DIR, filename)
     with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["期号", "开奖日期", "开奖号码"])
+        writer = csv.DictWriter(f, fieldnames=["期号", "开奖日期", "红球", "蓝球"])
         writer.writeheader()
         writer.writerows(records)
     print(f"数据已保存到 {filepath}，共 {len(records)} 条记录")
