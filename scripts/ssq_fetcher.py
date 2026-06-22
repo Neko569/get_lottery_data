@@ -76,6 +76,38 @@ def get_latest():
     return None
 
 
+def update_latest():
+    """获取最新一期并增量更新到现有JSON文件（若期号已存在则跳过）"""
+    filepath = os.path.join(DATA_DIR, "ssq_history.json")
+    latest = get_latest()
+    if not latest:
+        print("未能获取到最新数据")
+        return False
+
+    # 读取现有数据
+    existing = {"items": []}
+    if os.path.exists(filepath):
+        with open(filepath, "r", encoding="utf-8") as f:
+            existing = json.load(f)
+
+    items = existing.get("items", [])
+    # 检查最新期号是否已存在
+    if any(str(it.get("term")) == str(latest.get("term")) for it in items):
+        print(f"最新一期（期号 {latest.get('term')}）已存在，无需更新")
+        return True
+
+    # 插入到列表头部
+    items.insert(0, latest)
+    existing["items"] = items
+    existing["total"] = len(items)
+    existing["generated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+    print(f"已更新 {filepath}，新增期号 {latest.get('term')}，共 {len(items)} 条记录")
+    return True
+
+
 def get_all_data(months=None):
     """
     获取历史开奖数据
@@ -167,6 +199,7 @@ def main():
     """主函数，处理命令行参数并执行相应操作"""
     parser = argparse.ArgumentParser(description="获取双色球开奖数据")
     parser.add_argument("--latest", action="store_true", help="获取最新一期数据")
+    parser.add_argument("--update", action="store_true", help="获取最新一期并增量更新到JSON文件")
     parser.add_argument("--history", action="store_true", help="获取近10年历史数据")
     parser.add_argument("--recent", type=int, metavar="MONTHS", help="获取最近MONTHS个月的数据")
     parser.add_argument("--dry-run", action="store_true", help="仅输出不写入文件")
@@ -180,6 +213,9 @@ def main():
             print(json.dumps(record, ensure_ascii=False, indent=2))
         else:
             print("未能获取到最新数据")
+    elif args.update:
+        print("获取双色球最新一期并增量更新")
+        update_latest()
     else:
         months = args.recent if args.recent else None
         if months:

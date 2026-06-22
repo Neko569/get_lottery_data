@@ -85,7 +85,7 @@ def run_script(script_path, args):
 
 
 def fetch_latest(lottery_type):
-    """获取指定彩票类型的最近数据并写入文件"""
+    """获取指定彩票类型的最新一期数据并增量更新到文件"""
     if lottery_type == "ssq":
         script = SSQ_SCRIPT
     elif lottery_type == "daletou":
@@ -93,8 +93,8 @@ def fetch_latest(lottery_type):
     else:
         return False
 
-    # 使用 --recent 1 获取最近1个月数据并写入文件
-    return run_script(script, ["--recent", "1"])
+    # 使用 --update 获取最新一期并增量更新到JSON文件
+    return run_script(script, ["--update"])
 
 
 def main():
