@@ -20,10 +20,12 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 
+# 获取脚本所在目录，并设置数据存储目录
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "../data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# API配置
 API_URL = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry"
 HEADERS = {
     "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -32,12 +34,14 @@ HEADERS = {
     "Accept-Encoding": "gzip, deflate, br",
 }
 
-GAME_NO = "85"
-PAGE_SIZE = 30
+GAME_NO = "85"  # 大乐透的游戏代码
+PAGE_SIZE = 30  # 每页返回的记录数
 
 
 def _decode_body(resp):
+    """解码API响应内容，支持gzip压缩"""
     raw = resp.read()
+    # 检查响应是否使用gzip压缩
     encoding = resp.headers.get("Content-Encoding") or resp.headers.get("content-encoding")
     if encoding and "gzip" in encoding.lower():
         try:
@@ -48,6 +52,8 @@ def _decode_body(resp):
 
 
 def fetch_page(page_no, timeout=15):
+    """获取指定页码的数据"""
+    # 构建API请求参数
     params = urllib.parse.urlencode({
         "gameNo": GAME_NO,
         "provinceId": "0",
@@ -68,8 +74,10 @@ def fetch_page(page_no, timeout=15):
 
 
 def parse_record(record):
+    """解析单条开奖记录，提取并重组所需字段"""
     result = record.get("lotteryDrawResult") or ""
     parts = result.strip().split() if result else []
+    # 分离前区(5个号码)和后区(2个号码)
     front = parts[:5]
     back = parts[5:7]
     return {
@@ -82,6 +90,7 @@ def parse_record(record):
 
 
 def get_latest():
+    """获取最新一期的开奖数据"""
     data = fetch_page(1)
     if data and data.get("success"):
         items = (data.get("value") or {}).get("list", [])
@@ -91,6 +100,10 @@ def get_latest():
 
 
 def get_all_data():
+    """
+    获取近10年所有历史开奖数据
+    通过分页遍历获取数据，直到达到10年前的记录或达到最大页数
+    """
     all_records = []
     page = 1
     max_records = 2000
@@ -100,6 +113,7 @@ def get_all_data():
         print(f"正在获取第 {page} 页...")
         data = fetch_page(page)
 
+        # 首次请求失败则重试一次
         if data is None or not data.get("success"):
             print(f"API返回异常: {data}")
             time.sleep(1.0)
@@ -114,10 +128,12 @@ def get_all_data():
             print("没有更多数据了")
             break
 
+        # 解析并收集每条记录
         for record in records:
             parsed = parse_record(record)
             all_records.append(parsed)
 
+        # 检查是否已超过10年数据
         if records:
             latest_date = records[0].get("lotteryDrawTime", "")
             if latest_date:
@@ -130,16 +146,20 @@ def get_all_data():
                 except:
                     pass
 
+        # 数据不足一页说明已到末尾
         if len(records) < PAGE_SIZE:
             break
 
         page += 1
+        # 随机延时，避免请求过快被限流
         time.sleep(random.uniform(5, 20))
 
-    return sorted(all_records, key=lambda x: (x.get("开奖日期") or "", x.get("期号") or ""))
+    # 按日期和期号倒序排序，最新数据排在前面
+    return sorted(all_records, key=lambda x: (x.get("开奖日期") or "", x.get("期号") or ""), reverse=True)
 
 
 def save_to_file(records, filename="dlt_history.json"):
+    """保存数据到JSON文件"""
     filepath = os.path.join(DATA_DIR, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, indent=2)
@@ -147,6 +167,7 @@ def save_to_file(records, filename="dlt_history.json"):
 
 
 def save_to_csv(records, filename="dlt_history.csv"):
+    """保存数据到CSV文件"""
     if not records:
         return
     filepath = os.path.join(DATA_DIR, filename)
@@ -158,6 +179,7 @@ def save_to_csv(records, filename="dlt_history.csv"):
 
 
 def main():
+    """主函数，处理命令行参数并执行相应操作"""
     parser = argparse.ArgumentParser(description="获取大乐透开奖数据")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--latest", action="store_true", help="获取最新一期数据")
