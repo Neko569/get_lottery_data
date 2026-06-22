@@ -212,13 +212,6 @@ JSON_LITE_FIELDS = [
     "draw_result",
     "front_numbers",
     "back_numbers",
-    "pool_balance_after_draw",
-    "pool_balance",
-    "total_sale_amount",
-    "flow_fund",
-    "equipment_count",
-    "pdf_url",
-    "prize_levels",
 ]
 
 CSV_HEADERS = [
@@ -226,35 +219,7 @@ CSV_HEADERS = [
     "draw_time",
     "front_1", "front_2", "front_3", "front_4", "front_5",
     "back_1", "back_2",
-    "pool_balance_after_draw",
-    "pool_balance",
-    "total_sale_amount",
-    "flow_fund",
-    "equipment_count",
-    "pdf_url",
 ]
-
-CSV_PRIZE_COLUMNS = [
-    ("一等奖", "1"),
-    ("一等奖(追加)", "1_extra"),
-    ("二等奖", "2"),
-    ("二等奖(追加)", "2_extra"),
-    ("三等奖", "3"),
-    ("四等奖", "4"),
-    ("五等奖", "5"),
-    ("六等奖", "6"),
-    ("七等奖", "7"),
-]
-
-
-def build_csv_headers() -> List[str]:
-    headers = list(CSV_HEADERS)
-    for name, short in CSV_PRIZE_COLUMNS:
-        headers.append(f"prize_{short}_count")
-        headers.append(f"prize_{short}_amount")
-        headers.append(f"prize_{short}_total")
-    return headers
-
 
 def build_csv_row(item: Dict[str, Any]) -> List[str]:
     front = item.get("front_numbers") or []
@@ -264,31 +229,18 @@ def build_csv_row(item: Dict[str, Any]) -> List[str]:
     while len(back) < 2:
         back.append("")
 
-    row: List[Any] = [
+    return [
         item.get("term") or "",
         item.get("draw_time") or "",
         front[0], front[1], front[2], front[3], front[4],
         back[0], back[1],
-        item.get("pool_balance_after_draw") or "",
-        item.get("pool_balance") or "",
-        item.get("total_sale_amount") or "",
-        item.get("flow_fund") or "",
-        item.get("equipment_count") or "",
-        item.get("pdf_url") or "",
     ]
-    prize_levels = item.get("prize_levels") or {}
-    for name, _short in CSV_PRIZE_COLUMNS:
-        level = prize_levels.get(name) or {}
-        row.append(level.get("stakeCount") or "")
-        row.append(level.get("stakeAmount") or "")
-        row.append(level.get("totalPrizeamount") or "")
-    return row
 
 
 def write_csv(items: List[Dict[str, Any]], path: str) -> None:
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(build_csv_headers())
+        writer.writerow(CSV_HEADERS)
         for item in items:
             writer.writerow(build_csv_row(item))
     print(f"[OK] CSV 已写入: {path}  共 {len(items)} 行")
