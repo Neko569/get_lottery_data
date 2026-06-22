@@ -51,10 +51,17 @@ def fetch_page(page):
 
 def parse_record(record):
     """解析单条开奖记录，提取并重组所需字段"""
+    win_code = record.get("win_code", "")
+    parts = win_code.strip().split() if win_code else []
+    # 分离前区(6个红球)和后区(1个蓝球)
+    front = parts[:6]
+    back = parts[6:7]
     return {
         "期号": record.get("issue_number", ""),
         "开奖日期": record.get("lottery_date", ""),
-        "开奖号码": record.get("win_code", "")
+        "开奖号码": win_code,
+        "前区": " ".join(front),
+        "后区": " ".join(back)
     }
 
 
