@@ -54,14 +54,14 @@ def parse_record(record):
     win_code = record.get("win_code", "")
     parts = win_code.strip().split() if win_code else []
     # 分离前区(6个红球)和后区(1个蓝球)
-    front = parts[:6]
-    back = parts[6:7]
+    front_numbers = parts[:6]
+    back_numbers = parts[6:7]
     return {
-        "期号": record.get("issue_number", ""),
-        "开奖日期": record.get("lottery_date", ""),
-        "开奖号码": win_code,
-        "前区": " ".join(front),
-        "后区": " ".join(back)
+        "term": record.get("issue_number", ""),
+        "draw_time": record.get("lottery_date", ""),
+        "draw_result": win_code,
+        "front_numbers": front_numbers,
+        "back_numbers": back_numbers
     }
 
 
@@ -126,14 +126,22 @@ def get_all_data():
         time.sleep(0.5)
 
     # 按日期和期号倒序排序，最新数据排在前面
-    return sorted(all_records, key=lambda x: (x.get("开奖日期") or "", x.get("期号") or ""), reverse=True)
+    return sorted(all_records, key=lambda x: (x.get("draw_time") or "", x.get("term") or ""), reverse=True)
 
 
 def save_to_file(records, filename="ssq_history.json"):
     """保存数据到JSON文件"""
     filepath = os.path.join(DATA_DIR, filename)
+    data = {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "source": "daguoxiaoxian.com",
+        "game": "双色球",
+        "game_no": "ssq",
+        "total": len(records),
+        "items": records
+    }
     with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False, indent=2)
     print(f"数据已保存到 {filepath}，共 {len(records)} 条记录")
 
 
