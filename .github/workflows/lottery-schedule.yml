@@ -71,6 +71,22 @@ jobs:
           if git diff --cached --quiet; then
             echo "数据无变更，跳过提交"
           else
-            git commit -m "chore: 更新彩票开奖数据 ($(date '+%Y-%m-%d %H:%M:%S' %Z))"
+            # 提取本次更新的彩种与期号摘要，附在 commit message 中
+            SUMMARY=$(python -c "
+          import json, os
+          parts = []
+          for name, label in [('ssq_history.json','双色球'), ('dlt_history.json','大乐透')]:
+              p = os.path.join('data', name)
+              if os.path.exists(p):
+                  try:
+                      d = json.load(open(p, encoding='utf-8'))
+                      items = d.get('items', [])
+                      if items:
+                          parts.append(f'{label}{items[0].get(\"term\")}')
+                  except Exception:
+                      pass
+          print('、'.join(parts) if parts else '数据')
+          ")
+            git commit -m "chore: 更新彩票开奖数据 ($SUMMARY $(date '+%Y-%m-%d %H:%M:%S'))"
             git push
           fi
