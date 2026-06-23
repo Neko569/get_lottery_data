@@ -26,11 +26,20 @@ DATA_DIR = os.path.join(SCRIPT_DIR, "../data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # API配置
+# 注意：sporttery.cn 的 WAF 会根据请求头组合判断，数据中心 IP 上尤为严格。
+# 移动端 UA + m.lottery.gov.cn 的 Referer 在 GitHub Actions 上会返回 HTTP 567。
+# 参考成功在 Actions 上运行的项目，使用桌面 UA + sporttery.cn 自身的 Referer/Origin。
 API_URL = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry"
 HEADERS = {
-    "Accept": "application/json, text/javascript, */*; q=0.01",
-    "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
-    "Referer": "https://m.lottery.gov.cn/mkjdlt/",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Referer": "https://www.sporttery.cn/jc/jsq/dlt/",
+    "Origin": "https://www.sporttery.cn",
+    "Connection": "keep-alive",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
     "Accept-Encoding": "gzip, deflate, br",
 }
 
