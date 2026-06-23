@@ -124,6 +124,8 @@ def update_latest():
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(existing, f, ensure_ascii=False, indent=2)
     print(f"已更新 {filepath}，新增期号 {latest.get('term')}，共 {len(items)} 条记录")
+    # 同步重写 CSV，保持 JSON 与 CSV 数据一致
+    save_to_csv(items)
     return True
 
 

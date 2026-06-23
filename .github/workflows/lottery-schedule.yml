@@ -4,7 +4,31 @@ on:
   schedule:
     # UTC 14:30 = 北京时间 22:30
     - cron: '30 14 * * *'
+  push:
+    branches:
+      - main
+    # 忽略 data/ 目录变更，避免 workflow 自身提交数据后触发死循环
+    paths-ignore:
+      - 'data/**'
+      - '.github/**'
+      - 'README.md'
   workflow_dispatch:
+    inputs:
+      lottery:
+        description: '获取哪个彩种'
+        type: choice
+        options:
+          - both
+          - ssq
+          - daletou
+        default: both
+      mode:
+        description: '获取模式'
+        type: choice
+        options:
+          - update
+          - history
+        default: update
 
 jobs:
   fetch-lottery:
@@ -33,6 +57,10 @@ jobs:
           timedatectl
 
       - name: 执行调度脚本
+        env:
+          # workflow_dispatch 手动触发时使用传入参数；schedule/push 触发时为空，scheduler 内部默认 both/update
+          LOTTERY: ${{ github.event.inputs.lottery }}
+          FETCH_MODE: ${{ github.event.inputs.mode }}
         run: python scripts/scheduler.py
 
       - name: 提交数据变更

@@ -62,7 +62,7 @@ def run_script(script_path, args):
             cmd,
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=600
         )
 
         print(result.stdout)
@@ -77,15 +77,20 @@ def run_script(script_path, args):
             return False
 
     except subprocess.TimeoutExpired:
-        print(f"\n✗ {script_path} 执行超时（2分钟）")
+        print(f"\n✗ {script_path} 执行超时（10分钟）")
         return False
     except Exception as e:
         print(f"\n✗ {script_path} 执行异常: {e}")
         return False
 
 
-def fetch_latest(lottery_type):
-    """获取指定彩票类型的最新一期数据并增量更新到文件"""
+def fetch_latest(lottery_type, mode="update"):
+    """获取指定彩票类型的最新数据并更新到文件
+
+    mode:
+    - "update": 仅获取最新一期并增量更新（默认）
+    - "history": 重新拉取全量历史数据并覆盖文件
+    """
     if lottery_type == "ssq":
         script = SSQ_SCRIPT
     elif lottery_type == "daletou":
@@ -93,11 +98,20 @@ def fetch_latest(lottery_type):
     else:
         return False
 
-    # 使用 --update 获取最新一期并增量更新到JSON文件
+    if mode == "history":
+        # 全量刷新，覆盖 JSON 和 CSV
+        return run_script(script, ["--history"])
+    # 默认增量更新最新一期
     return run_script(script, ["--update"])
 
 
 def main():
+    # 支持通过环境变量传参（由 GitHub Actions workflow_dispatch 注入）
+    # LOTTERY: both(默认) / ssq / daletou
+    # FETCH_MODE: update(默认) / history
+    lottery = os.environ.get("LOTTERY", "both").strip().lower()
+    mode = os.environ.get("FETCH_MODE", "update").strip().lower()
+
     lottery_type, beijing_time = get_lottery_type()
 
     if lottery_type == "ssq":
@@ -107,12 +121,23 @@ def main():
     else:
         print("\n今天没有开奖任务（周五）")
 
-    # 由于 GitHub Actions 的 schedule 可能延迟（甚至跨天），
-    # 为保证数据完整性，每次都同时获取双色球和大乐透的最新数据。
-    # update_latest 内部会按期号去重，已存在的不会重复写入。
-    print("\n为确保数据完整性，同时获取双色球和大乐透最新数据...")
-    fetch_latest("ssq")
-    fetch_latest("daletou")
+    print(f"\n运行参数: LOTTERY={lottery} | FETCH_MODE={mode}")
+
+    # 确定要获取的彩种
+    if lottery == "ssq":
+        targets = ["ssq"]
+    elif lottery == "daletou":
+        targets = ["daletou"]
+    else:
+        # both 或其它值：同时获取双色球和大乐透
+        # 由于 GitHub Actions 的 schedule 可能延迟（甚至跨天），
+        # 为保证数据完整性，每次都同时获取两种的最新数据。
+        # update_latest 内部会按期号去重，已存在的不会重复写入。
+        targets = ["ssq", "daletou"]
+
+    print(f"将获取: {', '.join(targets)}\n")
+    for t in targets:
+        fetch_latest(t, mode=mode)
 
     print("\n" + "=" * 60)
     print("所有任务完成")
