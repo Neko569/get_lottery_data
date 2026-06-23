@@ -51,8 +51,8 @@ def _decode_body(resp):
     return raw
 
 
-def fetch_page(page_no, timeout=15):
-    """获取指定页码的数据"""
+def fetch_page(page_no, timeout=15, retries=3):
+    """获取指定页码的数据，失败自动重试"""
     # 构建API请求参数
     params = urllib.parse.urlencode({
         "gameNo": GAME_NO,
@@ -63,14 +63,23 @@ def fetch_page(page_no, timeout=15):
         "pageNo": str(page_no),
     })
     url = f"{API_URL}?{params}"
-    req = urllib.request.Request(url, headers=HEADERS)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = _decode_body(resp)
-        return json.loads(body.decode("utf-8", errors="replace"))
-    except Exception as e:
-        print(f"请求第{page_no}页失败: {e}")
-        return None
+
+    last_err = None
+    for attempt in range(1, retries + 1):
+        req = urllib.request.Request(url, headers=HEADERS)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = _decode_body(resp)
+            return json.loads(body.decode("utf-8", errors="replace"))
+        except Exception as e:
+            last_err = e
+            print(f"请求第{page_no}页失败（第{attempt}/{retries}次）: {e}")
+            if attempt < retries:
+                # 退避延时，避免连续握手失败
+                time.sleep(3 * attempt)
+
+    print(f"请求第{page_no}页已重试{retries}次仍失败: {last_err}")
+    return None
 
 
 def parse_record(record):

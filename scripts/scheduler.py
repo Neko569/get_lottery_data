@@ -100,17 +100,19 @@ def fetch_latest(lottery_type):
 def main():
     lottery_type, beijing_time = get_lottery_type()
 
-    if lottery_type is None:
-        print("\n今天没有开奖任务（周五）")
-        print("\n为确保数据完整性，仍将获取最新数据...")
-        fetch_latest("ssq")
-        fetch_latest("daletou")
-    elif lottery_type == "ssq":
+    if lottery_type == "ssq":
         print("\n今天开奖: 双色球")
-        fetch_latest("ssq")
     elif lottery_type == "daletou":
         print("\n今天开奖: 大乐透")
-        fetch_latest("daletou")
+    else:
+        print("\n今天没有开奖任务（周五）")
+
+    # 由于 GitHub Actions 的 schedule 可能延迟（甚至跨天），
+    # 为保证数据完整性，每次都同时获取双色球和大乐透的最新数据。
+    # update_latest 内部会按期号去重，已存在的不会重复写入。
+    print("\n为确保数据完整性，同时获取双色球和大乐透最新数据...")
+    fetch_latest("ssq")
+    fetch_latest("daletou")
 
     print("\n" + "=" * 60)
     print("所有任务完成")

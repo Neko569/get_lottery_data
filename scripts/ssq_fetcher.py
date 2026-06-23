@@ -33,20 +33,28 @@ HEADERS = {
 LIMIT = 30  # 每页返回的记录数
 
 
-def fetch_page(page):
-    """获取指定页码的数据"""
+def fetch_page(page, retries=3):
+    """获取指定页码的数据，失败自动重试"""
     params = {
         "type": 1,
         "limit": LIMIT,
         "page": page
     }
-    try:
-        response = requests.get(API_URL, headers=HEADERS, params=params, timeout=30)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        print(f"请求第{page}页失败: {e}")
-        return None
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(API_URL, headers=HEADERS, params=params, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            last_err = e
+            print(f"请求第{page}页失败（第{attempt}/{retries}次）: {e}")
+            if attempt < retries:
+                # 退避延时，避免连续握手失败
+                time.sleep(3 * attempt)
+
+    print(f"请求第{page}页已重试{retries}次仍失败: {last_err}")
+    return None
 
 
 def parse_record(record):
