@@ -2,18 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 彩票开奖调度脚本
-根据北京时间判断当天开奖的彩票类型，调用对应脚本获取最新数据
+每天获取所有彩种的最新开奖数据（增量更新）
 
-开奖时间（北京时间）：
-- 双色球（ssq）：    周二、周四、周日
-- 大乐透（dlt）：    周一、周三、周六
-- 七星彩（qxc）：    周二、周五、周日
-- 排列三（pls）：    每日
-- 排列五（plw）：    每日
-- 福彩3D（fc3d）：  每日
-- 七乐彩（qlc）：    周一、周三、周五
-- 快乐八（kl8）：    每日
-- 周五：大乐透、七星彩、七乐彩
+逻辑说明：
+- 每天触发时，调用所有彩种的 fetcher 执行 --update（增量更新最新一期）
+- 非开奖日的彩种，由于最新期号已存在，--update 会自动跳过，不会重复写入
+- 开奖日的彩种，能获取到最新一期并追加到数据文件
 
 在GitHub Actions执行时，默认是UTC时区，需要转换为北京时间(UTC+8)
 """
@@ -39,46 +33,32 @@ SCRIPTS = {
     "kl8":   os.path.join(SCRIPT_DIR, "kl8_fetcher.py"),
 }
 
-# 按星期几（0=周一）的开奖彩种
-# 七星彩（qxc）：周二、周五、周日
-LOTTERY_BY_WEEKDAY = {
-    0: ["dlt", "qlc"],              # 周一  - 大乐透、七乐彩
-    1: ["ssq", "qxc"],              # 周二  - 双色球、七星彩
-    2: ["dlt", "qlc"],              # 周三  - 大乐透、七乐彩
-    3: ["ssq", "qxc"],              # 周四  - 双色球、七星彩
-    4: ["qxc", "qlc"],              # 周五  - 七星彩、七乐彩
-    5: ["dlt"],                       # 周六  - 大乐透
-    6: ["ssq", "qxc"],              # 周日  - 双色球、七星彩
-}
-
-# 每日开奖的彩种（不受星期限制）
-DAILY_LOTTERIES = ["pls", "plw", "fc3d", "kl8"]
-
 
 def get_beijing_time():
     return datetime.now(BEIJING_TZ)
 
 
 def get_lottery_types():
-    """根据当天星期几，返回需要获取的彩种列表"""
+    """返回所有需要获取的彩种列表
+
+    每天触发时，获取所有彩种的最新数据（增量更新）。
+    各彩种在非开奖日调用 --update 时，由于最新期号已存在，会自动跳过，不会重复写入。
+    """
     beijing_time = get_beijing_time()
     weekday = beijing_time.weekday()
 
-    # 先加当日开奖的彩种
-    types = list(LOTTERY_BY_WEEKDAY.get(weekday, []))
-    # 再加每日开奖的彩种
-    types.extend(DAILY_LOTTERIES)
+    all_types = list(SCRIPTS.keys())
 
     print(f"=" * 60)
     print(f"当前北京时间: {beijing_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"今天是: 星期{['一','二','三','四','五','六','日'][weekday]}")
     print(f"=" * 60)
 
-    return types, beijing_time
+    return all_types, beijing_time
 
 
 def run_script(script_path, args):
-    """运行脚本，args 为参数列表，如 ['--recent', '1']"""
+    """运行脚本，args 为参数列表，如 ['--update']"""
     cmd = [sys.executable, script_path] + args
     print(f"\n正在运行: {' '.join(cmd)}")
     print("-" * 60)
@@ -135,14 +115,13 @@ def main():
 
     types, beijing_time = get_lottery_types()
 
-    # 显示今天开奖的彩种
     lottery_names = {
         "ssq": "双色球", "dlt": "大乐透", "qxc": "七星彩",
         "pls": "排列三", "plw": "排列五", "fc3d": "福彩3D",
         "qlc": "七乐彩", "kl8": "快乐八",
     }
     today_names = [lottery_names.get(t, t) for t in types]
-    print(f"\n今天开奖: {', '.join(today_names)}")
+    print(f"\n本次将获取: {', '.join(today_names)}")
 
     print(f"\n运行参数: LOTTERY={lottery} | FETCH_MODE={mode}")
 
@@ -152,7 +131,7 @@ def main():
     elif lottery in SCRIPTS:
         targets = [lottery]
     else:
-        # 未知参数，默认获取当天开奖的彩种
+        # 未知参数，默认获取所有彩种
         targets = types
 
     print(f"将获取: {', '.join(targets)}\n")
