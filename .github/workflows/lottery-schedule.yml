@@ -2,8 +2,8 @@ name: 彩票开奖数据定时获取
 
 on:
   schedule:
-    # UTC 14:30 = 北京时间 22:30
-    - cron: '30 14 * * *'
+    # 提前 15 分钟触发 (UTC 14:15 = 北京时间 22:15)，避免 GitHub Actions cron 延迟导致错过开奖时间
+    - cron: '15 14 * * *'
   push:
     branches:
       - main
@@ -55,6 +55,11 @@ jobs:
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           timedatectl
+
+      - name: 记录实际执行时间（北京时间）
+        run: |
+          echo "UTC 时间: $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "北京时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
 
       - name: 执行调度脚本
         env:
