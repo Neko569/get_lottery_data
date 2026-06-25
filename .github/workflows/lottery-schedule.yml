@@ -18,10 +18,16 @@ on:
         description: '获取哪个彩种'
         type: choice
         options:
-          - both
+          - all
           - ssq
           - daletou
-        default: both
+          - qxc
+          - pls
+          - plw
+          - fc3d
+          - qlc
+          - kl8
+        default: all
       mode:
         description: '获取模式'
         type: choice
@@ -63,7 +69,7 @@ jobs:
 
       - name: 执行调度脚本
         env:
-          # workflow_dispatch 手动触发时使用传入参数；schedule/push 触发时为空，scheduler 内部默认 both/update
+          # workflow_dispatch 手动触发时使用传入参数；schedule/push 触发时为空，scheduler 内部默认 all/update
           LOTTERY: ${{ github.event.inputs.lottery }}
           FETCH_MODE: ${{ github.event.inputs.mode }}
         run: python scripts/scheduler.py
@@ -79,9 +85,21 @@ jobs:
             # 提取本次更新的彩种与期号摘要，附在 commit message 中
             SUMMARY=$(python -c "
           import json, os
+
+          NAME_MAP = {
+              'ssq_history.json':  '双色球',
+              'dlt_history.json':  '大乐透',
+              'qxc_history.json':  '七星彩',
+              'pls_history.json':  '排列三',
+              'plw_history.json':  '排列五',
+              'fc3d_history.json': '福彩3D',
+              'qlc_history.json':  '七乐彩',
+              'kl8_history.json':  '快乐八',
+          }
+
           parts = []
-          for name, label in [('ssq_history.json','双色球'), ('dlt_history.json','大乐透')]:
-              p = os.path.join('data', name)
+          for fname, label in NAME_MAP.items():
+              p = os.path.join('data', fname)
               if os.path.exists(p):
                   try:
                       d = json.load(open(p, encoding='utf-8'))

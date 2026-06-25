@@ -5,9 +5,15 @@
 根据北京时间判断当天开奖的彩票类型，调用对应脚本获取最新数据
 
 开奖时间（北京时间）：
-- 双色球：周二、周四、周日
-- 大乐透：周一、周三、周六
-- 周五：无开奖
+- 双色球（ssq）：    周二、周四、周日
+- 大乐透（dlt）：    周一、周三、周六
+- 七星彩（qxc）：    周二、周五、周日
+- 排列三（pls）：    每日
+- 排列五（plw）：    每日
+- 福彩3D（fc3d）：  每日
+- 七乐彩（qlc）：    周一、周三、周五
+- 快乐八（kl8）：    每日
+- 周五：大乐透、七星彩、七乐彩
 
 在GitHub Actions执行时，默认是UTC时区，需要转换为北京时间(UTC+8)
 """
@@ -20,35 +26,55 @@ from datetime import datetime, timezone, timedelta
 BEIJING_TZ = timezone(timedelta(hours=8))
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SSQ_SCRIPT = os.path.join(SCRIPT_DIR, "ssq_fetcher.py")
-DALETOU_SCRIPT = os.path.join(SCRIPT_DIR, "dlt_fetcher.py")
 
-LOTTERY_BY_WEEKDAY = {
-    0: "daletou",   # 周一 - 大乐透
-    1: "ssq",       # 周二 - 双色球
-    2: "daletou",   # 周三 - 大乐透
-    3: "ssq",       # 周四 - 双色球
-    4: None,        # 周五 - 无开奖
-    5: "daletou",   # 周六 - 大乐透
-    6: "ssq",       # 周日 - 双色球
+# 各彩种 fetcher 脚本路径
+SCRIPTS = {
+    "ssq":   os.path.join(SCRIPT_DIR, "ssq_fetcher.py"),
+    "dlt":   os.path.join(SCRIPT_DIR, "dlt_fetcher.py"),
+    "qxc":   os.path.join(SCRIPT_DIR, "qxc_fetcher.py"),
+    "pls":   os.path.join(SCRIPT_DIR, "pls_fetcher.py"),
+    "plw":   os.path.join(SCRIPT_DIR, "plw_fetcher.py"),
+    "fc3d":  os.path.join(SCRIPT_DIR, "fc3d_fetcher.py"),
+    "qlc":   os.path.join(SCRIPT_DIR, "qlc_fetcher.py"),
+    "kl8":   os.path.join(SCRIPT_DIR, "kl8_fetcher.py"),
 }
+
+# 按星期几（0=周一）的开奖彩种
+# 七星彩（qxc）：周二、周五、周日
+LOTTERY_BY_WEEKDAY = {
+    0: ["dlt", "qlc"],              # 周一  - 大乐透、七乐彩
+    1: ["ssq", "qxc"],              # 周二  - 双色球、七星彩
+    2: ["dlt", "qlc"],              # 周三  - 大乐透、七乐彩
+    3: ["ssq", "qxc"],              # 周四  - 双色球、七星彩
+    4: ["qxc", "qlc"],              # 周五  - 七星彩、七乐彩
+    5: ["dlt"],                       # 周六  - 大乐透
+    6: ["ssq", "qxc"],              # 周日  - 双色球、七星彩
+}
+
+# 每日开奖的彩种（不受星期限制）
+DAILY_LOTTERIES = ["pls", "plw", "fc3d", "kl8"]
 
 
 def get_beijing_time():
     return datetime.now(BEIJING_TZ)
 
 
-def get_lottery_type():
+def get_lottery_types():
+    """根据当天星期几，返回需要获取的彩种列表"""
     beijing_time = get_beijing_time()
     weekday = beijing_time.weekday()
-    lottery_type = LOTTERY_BY_WEEKDAY.get(weekday)
+
+    # 先加当日开奖的彩种
+    types = list(LOTTERY_BY_WEEKDAY.get(weekday, []))
+    # 再加每日开奖的彩种
+    types.extend(DAILY_LOTTERIES)
 
     print(f"=" * 60)
     print(f"当前北京时间: {beijing_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"今天是: 星期{['一','二','三','四','五','六','日'][weekday]}")
     print(f"=" * 60)
 
-    return lottery_type, beijing_time
+    return types, beijing_time
 
 
 def run_script(script_path, args):
@@ -91,49 +117,43 @@ def fetch_latest(lottery_type, mode="update"):
     - "update": 仅获取最新一期并增量更新（默认）
     - "history": 重新拉取全量历史数据并覆盖文件
     """
-    if lottery_type == "ssq":
-        script = SSQ_SCRIPT
-    elif lottery_type == "daletou":
-        script = DALETOU_SCRIPT
-    else:
+    script = SCRIPTS.get(lottery_type)
+    if not script:
         return False
 
     if mode == "history":
-        # 全量刷新，覆盖 JSON 和 CSV
         return run_script(script, ["--history"])
-    # 默认增量更新最新一期
     return run_script(script, ["--update"])
 
 
 def main():
     # 支持通过环境变量传参（由 GitHub Actions workflow_dispatch 注入）
-    # LOTTERY: both(默认) / ssq / daletou
+    # LOTTERY: all(默认) / ssq / dlt / qxc / pls / plw / fc3d / qlc / kl8
     # FETCH_MODE: update(默认) / history
-    lottery = os.environ.get("LOTTERY", "both").strip().lower()
+    lottery = os.environ.get("LOTTERY", "all").strip().lower()
     mode = os.environ.get("FETCH_MODE", "update").strip().lower()
 
-    lottery_type, beijing_time = get_lottery_type()
+    types, beijing_time = get_lottery_types()
 
-    if lottery_type == "ssq":
-        print("\n今天开奖: 双色球")
-    elif lottery_type == "daletou":
-        print("\n今天开奖: 大乐透")
-    else:
-        print("\n今天没有开奖任务（周五）")
+    # 显示今天开奖的彩种
+    lottery_names = {
+        "ssq": "双色球", "dlt": "大乐透", "qxc": "七星彩",
+        "pls": "排列三", "plw": "排列五", "fc3d": "福彩3D",
+        "qlc": "七乐彩", "kl8": "快乐八",
+    }
+    today_names = [lottery_names.get(t, t) for t in types]
+    print(f"\n今天开奖: {', '.join(today_names)}")
 
     print(f"\n运行参数: LOTTERY={lottery} | FETCH_MODE={mode}")
 
     # 确定要获取的彩种
-    if lottery == "ssq":
-        targets = ["ssq"]
-    elif lottery == "daletou":
-        targets = ["daletou"]
+    if lottery == "all":
+        targets = types
+    elif lottery in SCRIPTS:
+        targets = [lottery]
     else:
-        # both 或其它值：同时获取双色球和大乐透
-        # 由于 GitHub Actions 的 schedule 可能延迟（甚至跨天），
-        # 为保证数据完整性，每次都同时获取两种的最新数据。
-        # update_latest 内部会按期号去重，已存在的不会重复写入。
-        targets = ["ssq", "daletou"]
+        # 未知参数，默认获取当天开奖的彩种
+        targets = types
 
     print(f"将获取: {', '.join(targets)}\n")
     for t in targets:
