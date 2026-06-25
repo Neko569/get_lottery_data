@@ -1,10 +1,26 @@
 {
-  "generated_at": "2026-06-24 01:08:53",
+  "generated_at": "2026-06-26 07:12:39",
   "source": "daguoxiaoxian.com",
   "game": "双色球",
   "game_no": "ssq",
-  "total": 2040,
+  "total": 2041,
   "items": [
+    {
+      "term": 2026072,
+      "draw_time": "2026-06-25",
+      "draw_result": "07 08 12 15 17 21 01",
+      "front_numbers": [
+        "07",
+        "08",
+        "12",
+        "15",
+        "17",
+        "21"
+      ],
+      "back_numbers": [
+        "01"
+      ]
+    },
     {
       "term": 2026071,
       "draw_time": "2026-06-23",
