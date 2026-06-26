@@ -1,9 +1,6 @@
 name: 彩票开奖数据定时获取
 
 on:
-  schedule:
-    # 提前 15 分钟触发 (UTC 14:15 = 北京时间 22:15)，避免 GitHub Actions cron 延迟导致错过开奖时间
-    - cron: '15 14 * * *'
   push:
     branches:
       - main
