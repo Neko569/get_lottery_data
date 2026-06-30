@@ -2,11 +2,17 @@
 # -*- coding: utf-8 -*-
 """
 获取福彩双色球开奖数据
-API来源: https://gdwechat.daguoxiaoxian.com/api/lottery-results/list
+数据源: https://kaijiang.500.com/static/info/kaijiang/xml/ssq/list.xml
+
+双色球：前区6个红球（01-33），后区1个蓝球（01-16），每周二、四、日开奖
+
+说明：
+与其他彩种一致，统一采用 500.com 的静态 XML 端点，一次返回全部历史期次
+（约 3000+ 期，回溯到 2003 年），无需分页，也不限定时间范围。
 
 用法:
     python ssq_fetcher.py --latest    # 获取最新一期
-    python ssq_fetcher.py --history   # 获取近10年历史数据
+    python ssq_fetcher.py --history   # 获取全部历史数据（约 3000+ 期，回溯到 2003 年）
 """
 
 import argparse
@@ -14,73 +20,77 @@ import csv
 import json
 import os
 import time
+import urllib.request
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
-
-import requests
 
 # 获取脚本所在目录，并设置数据存储目录
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "../data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# API配置
-API_URL = "https://gdwechat.daguoxiaoxian.com/api/lottery-results/list"
+# 数据源：500.com 静态 XML，一次返回全部历史期次（约 3000+ 期，回溯到 2003 年）
+API_URL = "https://kaijiang.500.com/static/info/kaijiang/xml/ssq/list.xml"
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
-    "Referer": "https://gdwechat.daguoxiaoxian.com/frontend/#/pages/historySSQ/index?v=2"
+    "User-Agent": "Mozilla/5.0",
 }
 
-LIMIT = 30  # 每页返回的记录数
 
-
-def fetch_page(page, retries=3):
-    """获取指定页码的数据，失败自动重试"""
-    params = {
-        "type": 1,
-        "limit": LIMIT,
-        "page": page
-    }
+def _fetch_xml(timeout=30, retries=3):
+    """拉取 XML 并解析为 row 元素列表，失败自动重试"""
     last_err = None
     for attempt in range(1, retries + 1):
+        req = urllib.request.Request(API_URL, headers=HEADERS)
         try:
-            response = requests.get(API_URL, headers=HEADERS, params=params, timeout=30)
-            response.raise_for_status()
-            return response.json()
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read()
+            root = ET.fromstring(body)
+            rows = root.findall("row")
+            if rows:
+                return rows
+            last_err = "XML 中无 row 记录"
         except Exception as e:
             last_err = e
-            print(f"请求第{page}页失败（第{attempt}/{retries}次）: {e}")
+            print(f"请求失败（第{attempt}/{retries}次）: {e}")
             if attempt < retries:
-                # 退避延时，避免连续握手失败
                 time.sleep(3 * attempt)
 
-    print(f"请求第{page}页已重试{retries}次仍失败: {last_err}")
+    print(f"已重试{retries}次仍失败: {last_err}")
     return None
 
 
-def parse_record(record):
-    """解析单条开奖记录，提取并重组所需字段"""
-    win_code = record.get("win_code", "")
-    # 支持逗号和空格分隔
-    parts = [p.strip() for p in win_code.replace(",", " ").split()] if win_code else []
-    # 分离前区(6个红球)和后区(1个蓝球)
-    front_numbers = parts[:6]
-    back_numbers = parts[6:7]
+def parse_record(row):
+    """解析单条 XML row，提取并重组所需字段
+
+    XML 格式：<row expect="26073" opencode="09,10,13,16,19,21|08" opentime="2026-06-28 21:15:00"/>
+    opencode 用逗号分隔号码，用 | 分隔前区(6个红球)和后区(1个蓝球)
+    """
+    expect = row.get("expect", "")
+    opencode = row.get("opencode", "")
+    opentime = row.get("opentime", "")
+
+    # 用 | 分隔前区和后区
+    if "|" in opencode:
+        front_str, back_str = opencode.split("|", 1)
+    else:
+        front_str, back_str = opencode, ""
+    front_numbers = [x.strip() for x in front_str.split(",") if x.strip()]
+    back_numbers = [x.strip() for x in back_str.split(",") if x.strip()]
+
     return {
-        "term": record.get("issue_number", ""),
-        "draw_time": record.get("lottery_date", ""),
-        "draw_result": " ".join(parts),
+        "term": expect,
+        "draw_time": opentime,
+        "draw_result": opencode,
         "front_numbers": front_numbers,
-        "back_numbers": back_numbers
+        "back_numbers": back_numbers,
     }
 
 
 def get_latest():
-    """获取最新一期的开奖数据"""
-    data = fetch_page(1)
-    if data is not None and data.get("code") == 1:
-        records = data.get("data", {}).get("list", [])
-        if records:
-            return parse_record(records[0])
+    """获取最新一期的开奖数据（XML 已按期号倒序，第一条即最新）"""
+    rows = _fetch_xml()
+    if rows:
+        return parse_record(rows[0])
     return None
 
 
@@ -119,62 +129,39 @@ def update_latest():
 
 
 def get_all_data(months=None):
+    """获取全部历史开奖数据
+
+    500.com 的静态 XML 一次返回全部历史期次（约 3000+ 期，回溯到 2003 年），
+    无需分页，也不限定时间。months 参数用于过滤只保留最近 N 个月的数据。
     """
-    获取历史开奖数据
-    通过分页遍历获取数据，直到达到指定月份前的记录或达到最大页数
-    months: 保留最近几个月的数据，None表示保留所有数据（最多10年）
-    """
-    all_records = []
-    page = 1
-    max_records = 2000
-    max_pages = (max_records // LIMIT) + 2
+    print("正在拉取双色球全量历史数据...")
+    rows = _fetch_xml()
+    if not rows:
+        return []
 
     cutoff_date = None
     if months:
         cutoff_date = datetime.now() - timedelta(days=30 * months)
         print(f"仅保留最近 {months} 个月的数据")
 
-    while page <= max_pages:
-        print(f"正在获取第 {page} 页...")
-        data = fetch_page(page)
-
-        # 检查API响应状态
-        if data is None or data.get("code") != 1:
-            print(f"API返回异常: {data}")
-            break
-
-        records = data.get("data", {}).get("list", [])
-        if not records:
-            print("没有更多数据了")
-            break
-
-        # 解析并收集每条记录
-        for record in records:
-            parsed = parse_record(record)
-            all_records.append(parsed)
-
-        # 检查是否已达到截止日期
-        if cutoff_date and records:
-            latest_date = records[0].get("lottery_date", "")
-            if latest_date:
+    all_records = []
+    for row in rows:
+        parsed = parse_record(row)
+        # 按月份过滤
+        if cutoff_date:
+            draw_time = parsed.get("draw_time", "")
+            if draw_time:
                 try:
-                    record_date = datetime.strptime(latest_date, "%Y-%m-%d")
+                    record_date = datetime.strptime(draw_time[:10], "%Y-%m-%d")
                     if record_date < cutoff_date:
-                        print(f"已超过 {months} 个月数据，停止获取")
-                        break
-                except:
+                        continue
+                except Exception:
                     pass
+        all_records.append(parsed)
 
-        # 数据不足一页说明已到末尾
-        if len(records) < LIMIT:
-            break
-
-        page += 1
-        # 请求间隔延时
-        time.sleep(0.5)
-
-    # 按日期和期号倒序排序，最新数据排在前面
-    return sorted(all_records, key=lambda x: (x.get("draw_time") or "", x.get("term") or ""), reverse=True)
+    print(f"共获取 {len(all_records)} 条记录")
+    # XML 已按期号倒序，无需再排序
+    return all_records
 
 
 def save_to_file(records, filename="ssq_history.json"):
@@ -182,7 +169,7 @@ def save_to_file(records, filename="ssq_history.json"):
     filepath = os.path.join(DATA_DIR, filename)
     data = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "source": "daguoxiaoxian.com",
+        "source": "kaijiang.500.com",
         "game": "双色球",
         "game_no": "ssq",
         "total": len(records),
@@ -210,7 +197,7 @@ def main():
     parser = argparse.ArgumentParser(description="获取双色球开奖数据")
     parser.add_argument("--latest", action="store_true", help="获取最新一期数据")
     parser.add_argument("--update", action="store_true", help="获取最新一期并增量更新到JSON文件")
-    parser.add_argument("--history", action="store_true", help="获取近10年历史数据")
+    parser.add_argument("--history", action="store_true", help="获取全部历史数据")
     parser.add_argument("--recent", type=int, metavar="MONTHS", help="获取最近MONTHS个月的数据")
     parser.add_argument("--dry-run", action="store_true", help="仅输出不写入文件")
     args = parser.parse_args()
@@ -231,7 +218,7 @@ def main():
         if months:
             print(f"获取双色球最近 {months} 个月数据")
         else:
-            print("获取双色球近10年历史数据")
+            print("获取双色球全部历史数据")
         print("=" * 50)
         records = get_all_data(months=months)
         if records:
