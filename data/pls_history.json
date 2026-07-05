@@ -1,10 +1,20 @@
 {
-  "generated_at": "2026-07-04 22:32:17",
+  "generated_at": "2026-07-05 22:31:49",
   "source": "kaijiang.500.com",
   "game": "排列三",
   "game_no": "pls",
-  "total": 7650,
+  "total": 7651,
   "items": [
+    {
+      "term": "26176",
+      "draw_time": "2026-07-05 21:25:00",
+      "draw_result": "5,8,4",
+      "numbers": [
+        "5",
+        "8",
+        "4"
+      ]
+    },
     {
       "term": "26175",
       "draw_time": "2026-07-04 21:25:00",
