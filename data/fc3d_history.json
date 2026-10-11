@@ -1,10 +1,20 @@
 {
-  "generated_at": "2026-10-10 22:32:14",
+  "generated_at": "2026-10-11 22:32:17",
   "source": "kaijiang.500.com",
   "game": "福彩3D",
   "game_no": "fc3d",
-  "total": 7769,
+  "total": 7770,
   "items": [
+    {
+      "term": "2026270",
+      "draw_time": "2026-10-11 21:15:00",
+      "draw_result": "0,8,4",
+      "numbers": [
+        "0",
+        "8",
+        "4"
+      ]
+    },
     {
       "term": "2026269",
       "draw_time": "2026-10-10 21:15:00",
