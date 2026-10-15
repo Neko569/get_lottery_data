@@ -1,10 +1,26 @@
 {
-  "generated_at": "2026-10-13 22:31:42",
+  "generated_at": "2026-10-15 22:32:12",
   "source": "kaijiang.500.com",
   "game": "双色球",
   "game_no": "ssq",
-  "total": 3514,
+  "total": 3515,
   "items": [
+    {
+      "term": "26118",
+      "draw_time": "2026-10-15 21:15:00",
+      "draw_result": "05,21,22,23,28,31|14",
+      "front_numbers": [
+        "05",
+        "21",
+        "22",
+        "23",
+        "28",
+        "31"
+      ],
+      "back_numbers": [
+        "14"
+      ]
+    },
     {
       "term": "26117",
       "draw_time": "2026-10-13 21:15:00",
