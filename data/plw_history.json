@@ -1,10 +1,22 @@
 {
-  "generated_at": "2026-11-27 22:32:41",
+  "generated_at": "2026-11-28 22:32:12",
   "source": "kaijiang.500.com",
   "game": "排列五",
   "game_no": "plw",
-  "total": 7782,
+  "total": 7783,
   "items": [
+    {
+      "term": "26318",
+      "draw_time": "2026-11-28 21:25:00",
+      "draw_result": "5,0,4,0,8",
+      "numbers": [
+        "5",
+        "0",
+        "4",
+        "0",
+        "8"
+      ]
+    },
     {
       "term": "26317",
       "draw_time": "2026-11-27 21:25:00",
